@@ -3,7 +3,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 from os.path import join
-import re
+import math
 from argparse import ArgumentParser
 
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
@@ -68,6 +68,7 @@ top_k = 50        #50
 top_p = 0.95
 device_0 = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device_1 = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     
 def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyzer):
     loss = 0
@@ -145,10 +146,23 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     # for sent in decode_temp_sentence :
     #     sent = sent.lower()
 
-    print('Decode Sentence : ', decode_temp_sentence)
+    # print('Decode Sentence : ', decode_temp_sentence)
 
-    sent_1 = decode_temp_sentence
+    sent_1 = []
     sent_2 = []
+
+    for j in range(inputs_id.shape[0]) :
+        tmp_sent = decode_temp_sentence[j].split()
+        keys = [x for x in keywords[args.topic]]
+
+        for idx in range(len(decode_temp_sentence[j].split())) :
+            for k in range(len(keywords[args.topic][keys[1]])) :
+                # print(keywords[args.topic][keys[0]][k], keywords[args.topic][keys[1]][k])
+                # print('\n')
+                if tmp_sent[idx] == keywords[args.topic][keys[1]][k] :
+                    tmp_sent[idx] = keywords[args.topic][keys[0]][k]
+        sent_1.append(" ".join(tmp_sent))
+
 
     for j in range(inputs_id.shape[0]) :
         tmp_sent = decode_temp_sentence[j].split()
@@ -163,8 +177,8 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
                     
         sent_2.append(" ".join(tmp_sent))
     
-    print('sent1 : ', sent_1)
-    print('sent2 : ', sent_2)
+    # print('sent1 : ', sent_1)
+    # print('sent2 : ', sent_2)
     
     score_1 = []
     score_2 = []
@@ -175,16 +189,28 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     for sentence in sent_2 :
         vs_2 = analyzer.polarity_scores(sentence)
         score_2.append(vs_2['compound'])
+    
+    reward = []
 
-    print(score_1, score_2)
-    print("=" * 100)
-    assert(0)
-    eos = [tokenizer.encoder["<|endoftext|>"]]
-    first_input = list(inputs_id.cpu().detach().numpy())
-    for j in range(inputs_id.shape[0]):
-        l = ll[j]
-        first_input[j] = first_input[j][:l+1]
-        first_input[j][-1] = eos[0]
+    for j in range(inputs_id.shape[0]) :
+        reward.append(abs(score_1[j] - score_2[j]))
+    reward = np.array(reward)
+
+    loss = 0
+    for j in range(inputs_id.shape[0]) :
+        loss += reward[j] * model_train_CrossEntropy[j]
+    
+    return loss, np.sum(reward)
+
+    # print(score_1, score_2)
+    # print("=" * 100)
+    
+    # eos = [tokenizer.encoder["<|endoftext|>"]]
+    # first_input = list(inputs_id.cpu().detach().numpy())
+    # for j in range(inputs_id.shape[0]):
+    #     l = ll[j]
+    #     first_input[j] = first_input[j][:l+1]
+    #     first_input[j][-1] = eos[0]
     # inter_response = []
     # if 'gpt' in args.inter:
     #     inter_response.extend(make_response(model_bot, decode_temp_sentence, tokenizer, first_input))
@@ -207,15 +233,16 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     #     l = ll[j%inputs_id.shape[0]]
     #     sent_input.append([tokenizer.decode(inputs_id[j%inputs_id.shape[0]][:l]), decode_temp_sentence[j%inputs_id.shape[0]].replace('<|endoftext|>', ''), inter_response[j][0]])
 
-    temp_score = []
+    # temp_score = []
 
-    score = np.array(score) / len(args.inter)
-    score = score - np.mean(score)
 
-    for j in range(inputs_id.shape[0]):
-        loss -= (score[j]) * model_train_CrossEntropy[j] #/ len(temp_sentence[j])
-        loss += coherence_loss[j] * args.ra #/ len(temp_sentence[j])
-    return loss, sum(temp_score), 1
+    # score = np.array(score) / len(args.inter)
+    # score = score - np.mean(score)
+
+    # for j in range(inputs_id.shape[0]):
+    #     loss -= (score[j]) * model_train_CrossEntropy[j] #/ len(temp_sentence[j])
+    #     loss += coherence_loss[j] * args.ra #/ len(temp_sentence[j])
+    # return loss, sum(temp_score), 1
 def main():
     parser = ArgumentParser()
     parser.add_argument("--emotion", type=str, default="angry")
@@ -283,10 +310,10 @@ def main():
         model_train.train()
         for inputs_id, mask, ll in tqdm(train_dataloader):
             batch += 1
-            batch_loss, score, avg_prob = train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyzer)
+            batch_loss, score = train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyzer)
             loss += batch_loss
 
-            test_score += avg_prob
+            # test_score += avg_prob
             temp_score += score
 
             if batch % 4 == 0:
@@ -301,12 +328,12 @@ def main():
                 print("Reward:%.2f,    test:%.6f   "%(temp_score/batch_size/20/3, test_score/20))
                 test_score = 0
                 temp_score = 0
-            if batch % 2500 == 0:
-                torch.save(
-                    {k: (v.cpu() if v is not None else None)  # save to cpu tensors
-                        for k, v in model_train.state_dict().items()},
-                    join(f'model/{args.save}/',
-                            f'{args.save}-{batch}.pkl'))
+            # if batch % 2500 == 0:
+            #     torch.save(
+            #         {k: (v.cpu() if v is not None else None)  # save to cpu tensors
+            #             for k, v in model_train.state_dict().items()},
+            #         join(f'model/{args.save}/',
+            #                 f'{args.save}-{batch}.pkl'))
 
 if __name__ == "__main__":
     main()
