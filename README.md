@@ -10,7 +10,14 @@ git clone https://github.com/FarnHua/chatbot_project.git
 ```
 python preprocess.py
 ```
-Execute (or modify some part) of the above python file to proprocess keywords to json file required in training. (.txt -> .json)
+Execute (or modify some part) of the above python file to proprocess keywords to json file required in training. 
+(.txt -> .json) the format is showing below. 
+```
+{ topic : {'label1' : [keywords]
+            'label2' : [keywords]
+          }
+}
+```
 Keywords now using words from https://github.com/uclanlp/gn_glove/tree/master/wordlist
 
 ### 2. traininig
