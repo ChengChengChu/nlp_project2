@@ -5,8 +5,13 @@ This project is modified from https://github.com/jacksukk/Chatbot-Project
 ```
 git clone https://github.com/FarnHua/chatbot_project.git
 ```
+### 2. install requirements
+```
+pip install vaderSentiment
+```
+others are same as in chatbot project
 
-### 1. Proprocess 
+### 3. Proprocess 
 ```
 python preprocess.py
 ```
@@ -20,7 +25,7 @@ Execute (or modify some part) of the above python file to proprocess keywords to
 ```
 Keywords now using words from https://github.com/uclanlp/gn_glove/tree/master/wordlist
 
-### 2. traininig
+### 4. traininig
 ```
 python train_c.py
 ```
