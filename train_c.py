@@ -5,6 +5,7 @@ from tensorboardX import SummaryWriter
 from os.path import join
 import math
 from argparse import ArgumentParser
+from DailyData import Daily
 
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import tqdm
@@ -143,6 +144,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     # print(temp_sentence)
     # assert(0)
     decode_temp_sentence = [tokenizer.decode(x).lower() for x in temp_sentence]
+    # print(decode_temp_sentence)
     # for sent in decode_temp_sentence :
     #     sent = sent.lower()
 
@@ -160,6 +162,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
                 # print(keywords[args.topic][keys[0]][k], keywords[args.topic][keys[1]][k])
                 # print('\n')
                 if tmp_sent[idx] == keywords[args.topic][keys[1]][k] :
+                    print("find key words")
                     tmp_sent[idx] = keywords[args.topic][keys[0]][k]
         sent_1.append(" ".join(tmp_sent))
 
@@ -173,6 +176,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
                 # print(keywords[args.topic][keys[0]][k], keywords[args.topic][keys[1]][k])
                 # print('\n')
                 if tmp_sent[idx] == keywords[args.topic][keys[0]][k] :
+                    print('find keywords')
                     tmp_sent[idx] = keywords[args.topic][keys[1]][k]
                     
         sent_2.append(" ".join(tmp_sent))
@@ -265,7 +269,12 @@ def main():
     # model_2 = GPT2LMHeadModel.from_pretrained(args.model)
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
-
+    # dataset = load_dataset(
+    # "daily_dialog",
+    #     revision="main"  # tag name, or branch name, or commit hash
+    # )
+    # print(dataset)
+    # assert(0)
     # if 'gpt' in args.inter:
     #     model_bot = GPT2LMHeadModel.from_pretrained('models/medium/')
     #     model_bot.to(device_1)
@@ -299,7 +308,8 @@ def main():
     # model_2.eval()
     batch_size = 1
     
-    post = post_set('data/train_raw.tsv', tokenizer)
+    # post = post_set('data/train_raw.tsv', tokenizer)
+    post = Daily('data/daily_train.json', tokenizer)
     train_dataloader = DataLoader(post, batch_size=batch_size, shuffle=True, num_workers=1)
     batch = 0
     temp_score = 0
@@ -309,7 +319,11 @@ def main():
     analyzer = SentimentIntensityAnalyzer()
     for global_step in range(1):
         model_train.train()
+        # tmp_idx = 0
         for inputs_id, mask, ll in tqdm(train_dataloader):
+            # if tmp_idx <= 20 :
+            #     print(inputs_id)
+            # tmp_idx += 1
             batch += 1
             batch_loss, score = train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyzer)
             loss += batch_loss
