@@ -234,7 +234,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     #test_score += avg_prob
     # sent_input = []
 
-    # for j in range(inputs_id.shape[0]*len(args.inter)):
+    # for j in range(inputs_id.shape[0]*len(tokenizer.encode(sen[0])args.inter)):
     #     l = ll[j%inputs_id.shape[0]]
     #     sent_input.append([tokenizer.decode(inputs_id[j%inputs_id.shape[0]][:l]), decode_temp_sentence[j%inputs_id.shape[0]].replace('<|endoftext|>', ''), inter_response[j][0]])
 
