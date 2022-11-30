@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torch.nn.utils.rnn import pad_sequence
 from chat_load import post_set
-# from lsp_model.optim import Adam
+from lsp_model.optim import Adam
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import string
 from tqdm import tqdm
@@ -88,7 +88,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
 
     temp_sentence = [[] for i in range(inputs_id.shape[0])]
     model_train_CrossEntropy = [0 for i in range(inputs_id.shape[0])]
-    coherence_loss = [0 for i in range(inputs_id.shape[0])]
+    # coherence_loss = [0 for i in range(inputs_id.shape[0])]
     append = torch.tensor([[1] for i in range(len(inputs_id))]).to(device_0)
     mask = torch.cat((mask, append), 1)
 
@@ -124,7 +124,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
             if i != 0 and temp_sentence[j][-1] == eos[0]: continue
             temp_loss = F.cross_entropy(logits[j].unsqueeze(0), prev_input.view(-1)[j].unsqueeze(0))
             # coherence_loss[j] += (logits_bot[j][prev_input[j][0].item()].item() - avg_prob) * temp_loss
-            model_train_CrossEntropy[j] += temp_loss
+            model_train_CrossEntropy[j] = temp_loss + model_train_CrossEntropy[j]
 
         ###################### append tokens to temp_sentences #############
         if i == 0:
@@ -198,8 +198,9 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
 
     loss = 0
     for j in range(inputs_id.shape[0]) :
-        loss += reward[j] * model_train_CrossEntropy[j]
+        loss = loss + model_train_CrossEntropy[j] * reward[j]
     
+    # print(type(loss))
     return loss, np.sum(reward)
 
     # print(score_1, score_2)
@@ -248,13 +249,13 @@ def main():
     parser.add_argument("--emotion", type=str, default="angry")
     parser.add_argument("--writer", type=str, default="")
     parser.add_argument("--save", type=str, default="model/save/")
-    parser.add_argument("--model", type=str, default='gpt2')
+    parser.add_argument("--model", type=str, default='microsoft/DialoGPT-small')
     parser.add_argument("--ra", type=float, default=3)
     parser.add_argument("--topic", type=str, default='gender')
     # parser.add_argument("--inter", type=str, default="gpt", nargs='+', required=True)
     args = parser.parse_args()
 
-    os.makedirs('model/' + args.model, exist_ok=True)
+    # os.makedirs('model/' + args.model, exist_ok=True)
     
 
     np.random.seed(100)
@@ -290,8 +291,8 @@ def main():
         {'params': [p for n, p in param_optimizer
                     if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
 
-    optimizer = torch.optim.Adam(optimizer_grouped_parameters, 5e-6,
-                     )
+    optimizer = Adam(optimizer_grouped_parameters, 5e-6,
+                     max_grad_norm=1.0)
 
     model_train.to(device_0)
     # model_2.to(device_1)
@@ -299,7 +300,7 @@ def main():
     batch_size = 1
     
     post = post_set('data/train_raw.tsv', tokenizer)
-    train_dataloader = DataLoader(post, batch_size=batch_size, shuffle=True, num_workers=2)
+    train_dataloader = DataLoader(post, batch_size=batch_size, shuffle=True, num_workers=1)
     batch = 0
     temp_score = 0
     loss = 0
@@ -315,18 +316,20 @@ def main():
 
             # test_score += avg_prob
             temp_score += score
-
+            # print('loss : ', loss)
             if batch % 4 == 0:
                 loss.backward()
+                # print("success backward")
                 optimizer.step()
+                # print("success step")
                 writer.add_scalar('loss', loss, batch)
                 optimizer.zero_grad()  
                 loss = 0
             if batch % 20 == 0:
-                writer.add_scalar('reward', temp_score/batch_size/20, batch)
-                writer.add_scalar('test_reward', test_score/20, batch)
-                print("Reward:%.2f,    test:%.6f   "%(temp_score/batch_size/20/3, test_score/20))
-                test_score = 0
+                # writer.add_scalar('reward', temp_score/batch_size/20, batch)
+                # writer.add_scalar('test_reward', test_score/20, batch)
+                # print("Reward:%.2f,    test:%.6f   "%(temp_score/batch_size/20/3, test_score/20))
+                # test_score = 0
                 temp_score = 0
             # if batch % 2500 == 0:
             #     torch.save(
