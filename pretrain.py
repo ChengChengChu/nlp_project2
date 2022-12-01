@@ -34,6 +34,7 @@ def main() :
     parser.add_argument("--model", type=str, default='microsoft/DialoGPT-small')
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--specific", type=str, default=None)
+
     # parser.add_argument("--ra", type=float, default=3)
     # parser.add_argument("--topic", type=str, default='gender')
     parser.add_argument("--prefix", type=str, default=None)
@@ -77,7 +78,7 @@ def main() :
                 print('loss : ', loss)
                 loss = 0
                 # break
-                torch.save(model_train.state_dict())
+                torch.save(model_train.state_dict(), args.save)
 
             # break
     
