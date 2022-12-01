@@ -16,7 +16,15 @@ class Daily(Dataset) :
         self.ll = []
 
         for sen in data['dialog'] :
-            tmp = tokenizer.encode(sen[0])
+            # print(sen[0])
+            if args.prefix : 
+                # print(args.prefix.split('_'))
+                # print(" ".join(args.prefix.split('_')) + sen[0])
+                tmp = tokenizer.encode(" ".join(args.prefix.split('_')) + "<|endoftext|>" + sen[0])
+            else :
+                tmp = tokenizer.encode(sen[0])
+            # print(tmp)
+
             tmp_token.append(tmp)
             tmp_mask.append([1 for i in range(len(tmp))])
             self.ll.append(len(tmp_mask))
