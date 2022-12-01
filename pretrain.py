@@ -5,6 +5,7 @@ from os.path import join
 import math
 from argparse import ArgumentParser
 from DailyData import Daily
+import os
 
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import tqdm
@@ -34,7 +35,6 @@ def main() :
     parser.add_argument("--model", type=str, default='microsoft/DialoGPT-small')
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--specific", type=str, default=None)
-
     # parser.add_argument("--ra", type=float, default=3)
     # parser.add_argument("--topic", type=str, default='gender')
     parser.add_argument("--prefix", type=str, default=None)
@@ -44,6 +44,8 @@ def main() :
 
     model_train = GPT2LMHeadModel.from_pretrained(args.model)
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
+
+    os.makedirs('model/' + args.save, exist_ok=True)
 
     param_optimizer = list(model_train.named_parameters())
     no_decay = ['bias', 'ln']   # no decay for bias and LayerNorm (ln)
@@ -76,9 +78,10 @@ def main() :
                 optimizer.step()
                 optimizer.zero_grad()  
                 print('loss : ', loss)
+               
                 loss = 0
                 # break
-                torch.save(model_train.state_dict(), args.save)
+                torch.save(model_train.state_dict(), 'model/' + args.save + '.pt')
 
             # break
     
