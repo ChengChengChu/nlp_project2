@@ -26,7 +26,6 @@ device_0 = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device_1 = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-
 def main() :
     parser = ArgumentParser()
     parser.add_argument("--emotion", type=str, default="angry")

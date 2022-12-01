@@ -260,6 +260,7 @@ def main():
     parser.add_argument("--ra", type=float, default=3)
     parser.add_argument("--topic", type=str, default='gender')
     parser.add_argument("--prefix", type=str, default=None)
+    parser.add_argument("--pretrain", type=str, default=None)
     # parser.add_argument("--inter", type=str, default="gpt", nargs='+', required=True)
     args = parser.parse_args()
 
@@ -270,6 +271,8 @@ def main():
     torch.random.manual_seed(100)
     torch.cuda.manual_seed(100)
     model_train = GPT2LMHeadModel.from_pretrained(args.model)
+    if args.pretrain :
+        model_train.load_state_dict(torch.load(args.pretrain))
     # model_2 = GPT2LMHeadModel.from_pretrained(args.model)
     tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
