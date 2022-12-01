@@ -5,7 +5,7 @@ import json
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 
 class Daily(Dataset) :
-    def __init__(self, path, tokenizer) :
+    def __init__(self, path, tokenizer, args) :
         # super().__init__()
         data = {}
         with open(path) as fp :
@@ -15,7 +15,6 @@ class Daily(Dataset) :
         tmp_mask = []
         self.ll = []
 
-        j = 0
         for sen in data['dialog'] :
             tmp = tokenizer.encode(sen[0])
             tmp_token.append(tmp)
@@ -38,8 +37,3 @@ class Daily(Dataset) :
     def __len__(self) :
         return len(self.token)
         
-
-
-# tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-
-# post = Daily('data/daily_train.json', tokenizer)

@@ -153,6 +153,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     sent_1 = []
     sent_2 = []
 
+    key_count = 0
     for j in range(inputs_id.shape[0]) :
         tmp_sent = decode_temp_sentence[j].split()
         keys = [x for x in keywords[args.topic]]
@@ -162,7 +163,8 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
                 # print(keywords[args.topic][keys[0]][k], keywords[args.topic][keys[1]][k])
                 # print('\n')
                 if tmp_sent[idx] == keywords[args.topic][keys[1]][k] :
-                    print("find key words")
+                    # print("find key words")
+                    key_count += 1
                     tmp_sent[idx] = keywords[args.topic][keys[0]][k]
         sent_1.append(" ".join(tmp_sent))
 
@@ -205,6 +207,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
         loss = loss + model_train_CrossEntropy[j] * reward[j]
     
     # print(type(loss))
+    print('find ', key_count, ' key words. ')
     return loss, np.sum(reward)
 
     # print(score_1, score_2)
@@ -256,6 +259,7 @@ def main():
     parser.add_argument("--model", type=str, default='microsoft/DialoGPT-small')
     parser.add_argument("--ra", type=float, default=3)
     parser.add_argument("--topic", type=str, default='gender')
+    parser.add_argument("--prefix", type=str, default=None)
     # parser.add_argument("--inter", type=str, default="gpt", nargs='+', required=True)
     args = parser.parse_args()
 
@@ -309,7 +313,7 @@ def main():
     batch_size = 1
     
     # post = post_set('data/train_raw.tsv', tokenizer)
-    post = Daily('data/daily_train.json', tokenizer)
+    post = Daily('data/daily_train_key.json', tokenizer, args)
     train_dataloader = DataLoader(post, batch_size=batch_size, shuffle=True, num_workers=1)
     batch = 0
     temp_score = 0
