@@ -3,7 +3,7 @@ This project is modified from https://github.com/jacksukk/Chatbot-Project
 ## Get started
 ### 1. clone the repository
 ```
-git clone https://github.com/FarnHua/chatbot_project.git
+https://github.com/ChengChengChu/nlp_project2.git
 ```
 ### 2. install requirements
 ```
