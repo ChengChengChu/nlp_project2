@@ -53,7 +53,7 @@ def get_finetune_args():
 
     parser.add_argument(
         "--epoch",
-        dtype=int,
+        type=int,
         default=2
     )
 
