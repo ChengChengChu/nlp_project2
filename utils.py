@@ -9,6 +9,10 @@ model_map = {
     'gpt': 'gpt2',
     'diologpt': 'microsoft/DialoGPT-small'
 }
+mens = []
+womens = []
+men_keys_to_idx = {}
+women_keys_to_idx = {}
 
 
 def set_seed(seed):
@@ -28,6 +32,22 @@ def set_finetune(args):
     os.makedirs(DIR, exist_ok=True)
     os.makedirs(os.path.join(DIR, args.save), exist_ok=True)
     os.makedirs(os.path.join(DIR, args.save, "models"), exist_ok=True)
+    
+def set_train() :
+    idx = 0
+    with open('keywords/men.txt') as fp :
+        idx = 0
+        for line in fp.read().splitlines() :
+            mens.append(line.lower())
+            men_keys_to_idx[line.lower()] = idx
+            idx += 1
+    
+    with open('keywords/women.txt') as fp : 
+        idx = 0
+        for line in fp.read().splitlines() :
+            womens.append(line.lower())
+            women_keys_to_idx[line.lower()] = idx
+            idx += 1
 
 def get_finetune_args():
     
@@ -205,3 +225,45 @@ def generate(
         
                 
     return decode_temp_sentence
+def replace_sentence(sens) :
+
+    ''' This function returns two sentences correspond to the given sentence
+        str --> str, str
+
+        e.g. 
+        He is my father  --> He is my father, She is my mother
+    '''
+    # print("PASS\n\n")
+    ret_1 = " "
+    ret_2 = " "
+
+    key_word_idx = []
+
+    sens_without_period = [x.lower() for x in sens.split('<|endoftext|>')[:-1]][0]
+    sens = [x.lower() for x in sens.split('<|endoftext|>')[:-1]][0]
+
+    period = [',', '.', '!', '?', '<', '>', '~', '{', '}', '[', ']', "'", '"']
+    for p in period : 
+        sens_without_period = sens_without_period.replace(p, '')
+    
+    sens_without_period = sens_without_period.replace('  ', ' ')
+    sens_without_period = sens_without_period.split()
+
+    # find key word list 
+    for i in range(len(sens_without_period)) : 
+        if sens_without_period[i] in mens or sens_without_period[i] in womens :
+            key_word_idx.append(i)
+    
+    ret_1 = sens.split()
+    ret_2 = sens.split()
+
+    for i in key_word_idx :
+        tmp = sens_without_period[i]
+
+        if tmp in womens :
+            ret_1[i] = ret_1[i].replace(tmp, mens[women_keys_to_idx[tmp]])
+        
+        if tmp in mens :
+            ret_2[i] = ret_2[i].replace(tmp, womens[men_keys_to_idx[tmp]])
+    
+    return " ".join(ret_1), " ".join(ret_2)
