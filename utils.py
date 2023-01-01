@@ -3,11 +3,13 @@ import torch
 import numpy as np
 import random
 import os
+from decoding import *
 
 model_map = {
     'gpt': 'gpt2',
     'diologpt': 'microsoft/DialoGPT-small'
 }
+
 
 def set_seed(seed):
 
@@ -55,6 +57,18 @@ def get_finetune_args():
         "--epoch",
         type=int,
         default=2
+    )
+
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default='train'
+    )
+
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        default=None
     )
 
     args = parser.parse_args()
@@ -144,3 +158,50 @@ def get_args():
     args = parser.parse_args()
 
     return args
+
+
+def generate(
+    model,
+    tokenizer,
+    prompt,
+    device,
+    max_length=40, #maximum number of words
+    top_p=0.8,
+    top_k=0.95,
+    temperature=1.,
+):
+    
+    model.eval()
+
+    inputs_id = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0)
+    inputs_id.to(device)
+    model_out = model(inputs_id)
+    prev_input, past = model_out['logits'], model_out['past_key_values']
+
+    prev_input = torch.LongTensor(['<|endoftext|>'])
+    temp_sentence = []
+
+    with torch.no_grad():
+        for i in range(max_length):
+            prev_input = prev_input.to(device)
+            model_train_out = model(prev_input, past_key_values=past)
+            logits, past = model_train_out['logits'], model_train_out['past_key_values']
+
+            logits = logits.squeeze(0).squeeze(1)
+            logits = original(logits)
+            prev_input = torch.multinomial(logits[:], num_samples=1)
+
+            if i == 0:              
+                temp_sentence.append(prev_input[0].item())
+                continue
+            flag = 1
+            if temp_sentence[-1] != '<|endoftext|>': 
+                flag = 0
+                temp_sentence.append(prev_input[0].item())
+
+            if flag == 1: break
+    
+    decode_temp_sentence = [tokenizer.decode(x).lower() for x in temp_sentence]
+        
+                
+    return decode_temp_sentence

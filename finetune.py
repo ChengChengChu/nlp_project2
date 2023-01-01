@@ -9,27 +9,49 @@ from lsp_model.optim import Adam
 from tqdm import tqdm
 from utils import *
 
-
-
-def main() :
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-    args = get_finetune_args()
-
-    set_seed(args.seed)
-    set_finetune(args)
+def set_model(args):
 
     if args.model in model_map:
         m = model_map[args.model]
     else:
         m = args.model
     
-    model_train = GPT2LMHeadModel.from_pretrained(m)
+    model = GPT2LMHeadModel.from_pretrained(m)
     tokenizer = GPT2Tokenizer.from_pretrained(m)
-    model_train.to(device)
-    
 
+    args.ckpt = "pretrain_output/gpt_pretrain/models/gpt-1.pt"
+
+    if args.ckpt != None:
+        model.load_stat_dict(torch.load(args.ckpt))
+    
+    return model, tokenizer
+
+
+def test_finetune():
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    set_seed(args.seed)
+
+    model, tokenizer = set_model(args)
+
+    prompt = "Give me a sentence: "
+
+    setence = generate(model, tokenizer, prompt, device)
+
+    import pdb
+    pdb.set_trace()
+
+
+
+
+def main(args) :
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    set_seed(args.seed)
+    set_finetune(args)
+    model_train, tokenizer = set_model(args)
+
+    model_train.to(device)
     param_optimizer = list(model_train.named_parameters())
     no_decay = ['bias', 'ln']   # no decay for bias and LayerNorm (ln)
     optimizer_grouped_parameters = [
@@ -76,4 +98,9 @@ def main() :
 
 
 if __name__ == "__main__" :
-    main()
+    args = get_finetune_args()
+
+    if args.mode == 'train':
+        main(args)
+    else:
+        test_finetune(args)
