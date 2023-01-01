@@ -110,15 +110,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
         #     logits_bot = torch.softmax(logits_bot.squeeze(0).squeeze(1) / temperature, dim=-1)
         prev_input = torch.multinomial(logits[:], num_samples=1)
 
-        # probs = []
-        # for j in range(inputs_id.shape[0]):
-        #     if i != 0 and temp_sentence[j][-1] == eos[0]: 
-        #         continue
-        #     probs.append(logits_bot[j][prev_input[j][0].item()].item())
-        # if len(probs) == 0:
-        #     avg_prob = 0
-        # else:
-        #     avg_prob = sum(probs) / len(probs)
+
 
         ####################### calculate loss ############################
         for j in range(inputs_id.shape[0]):
@@ -210,47 +202,7 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     print('find ', key_count, ' key words. ')
     return loss, np.sum(reward)
 
-    # print(score_1, score_2)
-    # print("=" * 100)
-    
-    # eos = [tokenizer.encoder["<|endoftext|>"]]
-    # first_input = list(inputs_id.cpu().detach().numpy())
-    # for j in range(inputs_id.shape[0]):
-    #     l = ll[j]
-    #     first_input[j] = first_input[j][:l+1]
-    #     first_input[j][-1] = eos[0]
-    # inter_response = []
-    # if 'gpt' in args.inter:
-    #     inter_response.extend(make_response(model_bot, decode_temp_sentence, tokenizer, first_input))
-    # if 'google' in args.inter:
-    #     #k = []
-    #     for j in range(inputs_id.shape[0]):
-    #         k.append([jack.daemonPredict(sentence=a[j].replace('<|endoftext|>', ''))])
-    # if 'retrieve' in args.inter:
-    #     ii = []
-    #     for j in range(inputs_id.shape[0]): 
-    #         # ii = [tokenizer.decode(x[:-1]) for x in first_input]
-    #         ii.append([tokenizer.decode(first_input[j][:-1]), a[j].replace('<|endoftext|>', '')])
-    #     rps = ret_model.get_response(ii)
-    #     k.extend([[x] for x in rps])
-
-    #test_score += avg_prob
-    # sent_input = []
-
-    # for j in range(inputs_id.shape[0]*len(tokenizer.encode(sen[0])args.inter)):
-    #     l = ll[j%inputs_id.shape[0]]
-    #     sent_input.append([tokenizer.decode(inputs_id[j%inputs_id.shape[0]][:l]), decode_temp_sentence[j%inputs_id.shape[0]].replace('<|endoftext|>', ''), inter_response[j][0]])
-
-    # temp_score = []
-
-
-    # score = np.array(score) / len(args.inter)
-    # score = score - np.mean(score)
-
-    # for j in range(inputs_id.shape[0]):
-    #     loss -= (score[j]) * model_train_CrossEntropy[j] #/ len(temp_sentence[j])
-    #     loss += coherence_loss[j] * args.ra #/ len(temp_sentence[j])
-    # return loss, sum(temp_score), 1
+   
 def main():
     parser = ArgumentParser()
     parser.add_argument("--emotion", type=str, default="angry")

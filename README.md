@@ -7,9 +7,9 @@ https://github.com/ChengChengChu/nlp_project2.git
 ```
 ### 2. install requirements
 ```
-pip install vaderSentiment
+pip install -r requirements.txt
 ```
-others are same as in chatbot project
+
 
 ### 3. Proprocess 
 ```

@@ -2,7 +2,7 @@ from torch.utils.data.dataset import Dataset
 from torch.nn.utils.rnn import pad_sequence
 import torch
 import json
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+
 
 class Daily(Dataset) :
     def __init__(self, path, tokenizer, args) :
@@ -16,21 +16,13 @@ class Daily(Dataset) :
         self.ll = []
 
         for sen in data['dialog'] :
-            # print(sen[0])
-            if args.prefix : 
-                # print(args.prefix.split('_'))
-                # print(" ".join(args.prefix.split('_')) + sen[0])
-                tmp = tokenizer.encode(" ".join(args.prefix.split('_')) + "<|endoftext|>" + sen[0])
-            else :
-                tmp = tokenizer.encode(sen[0])
-            # print(tmp)
 
+            tmp = tokenizer.encode(sen[0] + "<|endoftext|>")
+            
             tmp_token.append(tmp)
             tmp_mask.append([1 for i in range(len(tmp))])
             self.ll.append(len(tmp_mask))
-            # if j == 13 :
-            #     print(sen[0].split()[0], '\n\n')
-            # j += 1
+
         
         self.token = pad_sequence([torch.LongTensor(x) for x in tmp_token], batch_first=True, padding_value=0)
         self.mask = pad_sequence([torch.LongTensor(x) for x in tmp_mask], batch_first=True, padding_value=0)
