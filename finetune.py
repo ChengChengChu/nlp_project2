@@ -65,7 +65,7 @@ def main() :
                 optimizer.step()
                 optimizer.zero_grad()
                 with open(f"./pretrain_output/{args.save}/loss.txt", 'a') as f:
-                    f.write(f"[ Training loss | epoch: {epoch} | step: {batch/16} ]: {loss}")
+                    f.write(f"[ Training loss | epoch: {epoch} | step: {batch/16} ]: {loss}\n")
 
             batch += 1
 
