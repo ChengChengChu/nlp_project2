@@ -225,6 +225,7 @@ def generate(
         
                 
     return decode_temp_sentence
+    
 def replace_sentence(sens) :
 
     ''' This function returns two sentences correspond to the given sentence
