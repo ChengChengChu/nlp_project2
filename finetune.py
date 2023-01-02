@@ -19,16 +19,16 @@ def set_model(args):
     model = GPT2LMHeadModel.from_pretrained(m)
     tokenizer = GPT2Tokenizer.from_pretrained(m)
 
-    args.ckpt = "pretrain_output/gpt_pretrain/models/gpt-1.pt"
+    args.ckpt = "pretrain_output/gpt_pretrain/models/gpt-0.pt"
 
     if args.ckpt != None:
-        model.load_stat_dict(torch.load(args.ckpt))
+        model.load_state_dict(torch.load(args.ckpt))
     
     return model, tokenizer
 
 
-def test_finetune():
-
+def test_finetune(args):
+    print("PASS")
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     set_seed(args.seed)
 
@@ -78,7 +78,9 @@ def main(args) :
         for inputs_id, mask, ll in tqdm(train_dataloader):
 
             inputs_id, mask = inputs_id.to(device), mask.to(device)
-            
+            # print(inputs_id)
+            # print(mask)
+            # print("+" * 100)
             output = model_train(inputs_id, attention_mask=mask, labels=inputs_id)
             loss = output['loss']
             loss.backward()

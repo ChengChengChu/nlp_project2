@@ -9,6 +9,10 @@ model_map = {
     'gpt': 'gpt2',
     'diologpt': 'microsoft/DialoGPT-small'
 }
+mens = []
+womens = []
+men_keys_to_idx = {}
+women_keys_to_idx = {}
 
 
 def set_seed(seed):
@@ -28,6 +32,22 @@ def set_finetune(args):
     os.makedirs(DIR, exist_ok=True)
     os.makedirs(os.path.join(DIR, args.save), exist_ok=True)
     os.makedirs(os.path.join(DIR, args.save, "models"), exist_ok=True)
+    
+def set_train() :
+    idx = 0
+    with open('keywords/men.txt') as fp :
+        idx = 0
+        for line in fp.read().splitlines() :
+            mens.append(line.lower())
+            men_keys_to_idx[line.lower()] = idx
+            idx += 1
+    
+    with open('keywords/women.txt') as fp : 
+        idx = 0
+        for line in fp.read().splitlines() :
+            womens.append(line.lower())
+            women_keys_to_idx[line.lower()] = idx
+            idx += 1
 
 def get_finetune_args():
     
@@ -163,32 +183,35 @@ def get_args():
 def generate(
     model,
     tokenizer,
-    prompt,
+    prompt, 
     device,
     max_length=40, #maximum number of words
     top_p=0.8,
     top_k=0.95,
     temperature=1.,
 ):
-    
     model.eval()
-
-    inputs_id = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0)
-    inputs_id.to(device)
+    
+    inputs_id = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0).to(device)
+    # inputs_id.to(device)
+    model = model.to(device)
     model_out = model(inputs_id)
     prev_input, past = model_out['logits'], model_out['past_key_values']
 
-    prev_input = torch.LongTensor(['<|endoftext|>'])
+    prev_input = torch.LongTensor(tokenizer.encode(['<|endoftext|>'])).to(device)
     temp_sentence = []
-
+    count = 0
     with torch.no_grad():
         for i in range(max_length):
             prev_input = prev_input.to(device)
             model_train_out = model(prev_input, past_key_values=past)
             logits, past = model_train_out['logits'], model_train_out['past_key_values']
-
-            logits = logits.squeeze(0).squeeze(1)
+            
+            # import pdb
+            # pdb.set_trace()
+            logits = logits.squeeze(0)# .squeeze(1)
             logits = original(logits)
+
             prev_input = torch.multinomial(logits[:], num_samples=1)
 
             if i == 0:              
@@ -205,3 +228,47 @@ def generate(
         
                 
     return decode_temp_sentence
+    
+def replace_sentence(sens) :
+
+    ''' This function returns two sentences correspond to the given sentence
+        str --> str, str
+
+        e.g. 
+        He is my father  --> He is my father, She is my mother
+    '''
+    ret_1 = " "
+    ret_2 = " "
+
+    key_word_idx = []
+
+    sens = sens.replace('\n', '') + '\n'
+
+    sens_without_period = [x.lower() for x in sens.split()]
+    sens = [x.lower() for x in sens.split()]
+
+    period = [',', '.', '!', '?', '<', '>', '~', '{', '}', '[', ']', "'", '"']
+    for p in period : 
+        for s in sens_without_period : 
+            s = s.replace(p, '')
+
+    assert(len(sens_without_period) == len(sens))
+
+    # find key word list 
+    for i in range(len(sens_without_period)) : 
+        if sens_without_period[i] in mens or sens_without_period[i] in womens :
+            key_word_idx.append(i)
+    
+    ret_1 = sens[:]
+    ret_2 = sens[:]
+
+    for i in key_word_idx :
+        tmp = sens_without_period[i]
+
+        if tmp in womens :
+            ret_1[i] = ret_1[i].replace(tmp, mens[women_keys_to_idx[tmp]])
+        
+        if tmp in mens :
+            ret_2[i] = ret_2[i].replace(tmp, womens[men_keys_to_idx[tmp]])
+    
+    return " ".join(ret_1), " ".join(ret_2)

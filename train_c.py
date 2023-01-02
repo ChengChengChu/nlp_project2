@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from utils import *
 from torch.utils.data import DataLoader
 from tensorboardX import SummaryWriter
 from os.path import join
@@ -62,7 +63,6 @@ def top_filtering(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
         
         sorted_logits = sorted_logits.masked_fill_(sorted_indices_to_remove, filter_value)
         logits = torch.zeros_like(logits).scatter(1, sorted_indices, sorted_logits)
-    
     return logits
 temperature = 1 #2.2
 top_k = 50        #50
@@ -85,6 +85,9 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
 
     # with torch.no_grad():
     #     prev_input, past_bot = model_2(inputs_id, past=None, attention_mask=mask)
+    prompt = torch.LongTensor(tokenizer.encode("Say something about gender")).to(device_0)
+    model_train_out = model_train(prompt, past_key_values=past)
+    prev_input, past = model_train_out['logits'], model_train_out['past_key_values']
     prev_input = torch.LongTensor([[eos] * inputs_id.shape[0]]).to(device_0)
 
     temp_sentence = [[] for i in range(inputs_id.shape[0])]
@@ -140,43 +143,17 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
     # for sent in decode_temp_sentence :
     #     sent = sent.lower()
 
-    # print('Decode Sentence : ', decode_temp_sentence)
+    # print('Decode Sentence : ', decode_temp_sentence
 
-    sent_1 = []
-    sent_2 = []
-
-    key_count = 0
-    for j in range(inputs_id.shape[0]) :
-        tmp_sent = decode_temp_sentence[j].split()
-        keys = [x for x in keywords[args.topic]]
-
-        for idx in range(len(decode_temp_sentence[j].split())) :
-            for k in range(len(keywords[args.topic][keys[1]])) :
-                # print(keywords[args.topic][keys[0]][k], keywords[args.topic][keys[1]][k])
-                # print('\n')
-                if tmp_sent[idx] == keywords[args.topic][keys[1]][k] :
-                    # print("find key words")
-                    key_count += 1
-                    tmp_sent[idx] = keywords[args.topic][keys[0]][k]
-        sent_1.append(" ".join(tmp_sent))
-
-
-    for j in range(inputs_id.shape[0]) :
-        tmp_sent = decode_temp_sentence[j].split()
-        keys = [x for x in keywords[args.topic]]
-        
-        for idx in range(len(decode_temp_sentence[j].split())) :
-            for k in range(len(keywords[args.topic][keys[0]])) :
-                # print(keywords[args.topic][keys[0]][k], keywords[args.topic][keys[1]][k])
-                # print('\n')
-                if tmp_sent[idx] == keywords[args.topic][keys[0]][k] :
-                    print('find keywords')
-                    tmp_sent[idx] = keywords[args.topic][keys[1]][k]
-                    
-        sent_2.append(" ".join(tmp_sent))
-    
+    sent_1, sent_2 = [], []
+    for x in decode_temp_sentence :
+        tmp_1, tmp_2 = replace_sentence(x)
+        sent_1.append(tmp_1)
+        sent_2.append(tmp_2)    
     # print('sent1 : ', sent_1)
     # print('sent2 : ', sent_2)
+
+    print(sent_1[0])
     
     score_1 = []
     score_2 = []
@@ -192,6 +169,8 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
 
     for j in range(inputs_id.shape[0]) :
         reward.append(abs(score_1[j] - score_2[j]))
+        if abs(score_1[j] - score_2[j]) :
+            print("Here is a non-zero score !")
     reward = np.array(reward)
 
     loss = 0
@@ -199,7 +178,8 @@ def train(model_train, inputs_id, mask, tokenizer, ll, args, batch_size, analyze
         loss = loss + model_train_CrossEntropy[j] * reward[j]
     
     # print(type(loss))
-    print('find ', key_count, ' key words. ')
+    # print('find ', key_count, ' key words. ')
+    
     return loss, np.sum(reward)
 
    
