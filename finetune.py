@@ -78,9 +78,7 @@ def main(args) :
         for inputs_id, mask, ll in tqdm(train_dataloader):
 
             inputs_id, mask = inputs_id.to(device), mask.to(device)
-            # print(inputs_id)
-            # print(mask)
-            # print("+" * 100)
+            
             output = model_train(inputs_id, attention_mask=mask, labels=inputs_id)
             loss = output['loss']
             loss.backward()
