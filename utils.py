@@ -234,29 +234,30 @@ def replace_sentence(sens) :
         e.g. 
         He is my father  --> He is my father, She is my mother
     '''
-    # print("PASS\n\n")
     ret_1 = " "
     ret_2 = " "
 
     key_word_idx = []
 
-    sens_without_period = [x.lower() for x in sens.split('<|endoftext|>')[:-1]][0]
-    sens = [x.lower() for x in sens.split('<|endoftext|>')[:-1]][0]
+    sens = sens.replace('\n', '') + '\n'
+
+    sens_without_period = [x.lower() for x in sens.split()]
+    sens = [x.lower() for x in sens.split()]
 
     period = [',', '.', '!', '?', '<', '>', '~', '{', '}', '[', ']', "'", '"']
     for p in period : 
-        sens_without_period = sens_without_period.replace(p, '')
-    
-    sens_without_period = sens_without_period.replace('  ', ' ')
-    sens_without_period = sens_without_period.split()
+        for s in sens_without_period : 
+            s = s.replace(p, '')
+
+    assert(len(sens_without_period) == len(sens))
 
     # find key word list 
     for i in range(len(sens_without_period)) : 
         if sens_without_period[i] in mens or sens_without_period[i] in womens :
             key_word_idx.append(i)
     
-    ret_1 = sens.split()
-    ret_2 = sens.split()
+    ret_1 = sens[:]
+    ret_2 = sens[:]
 
     for i in key_word_idx :
         tmp = sens_without_period[i]
