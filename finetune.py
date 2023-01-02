@@ -28,23 +28,22 @@ def set_model(args):
 
 
 def test_finetune(args):
-    print("PASS")
+    
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     set_seed(args.seed)
 
     model, tokenizer = set_model(args)
 
-    prompt = "Give me a sentence: "
+    prompt = args.prompt
 
-    setence = generate(model, tokenizer, prompt, device)
+    sentence = generate(model, tokenizer, prompt, device)
 
-    import pdb
-    pdb.set_trace()
-
+    print(sentence)
 
 
 
-def main(args) :
+
+def train(args) :
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     set_seed(args.seed)
@@ -72,22 +71,29 @@ def main(args) :
     
     # training
     model_train.train()
+    
     for epoch in range(args.epoch):
         batch = 0
         loss = 0
-        for inputs_id, mask, ll in tqdm(train_dataloader):
+        pbar = tqdm(train_dataloader)
+        for inputs_id, mask, length in pbar:
 
-            inputs_id, mask = inputs_id.to(device), mask.to(device)
+            inputs_id = inputs_id[:, :length].to(device)
             
-            output = model_train(inputs_id, attention_mask=mask, labels=inputs_id)
+            # print(inputs_id)
+            # print(mask)
+            # print("+" * 100)
+            
+            output = model_train(inputs_id, labels=inputs_id)
             loss = output['loss']
             loss.backward()
 
-            if batch % 16 == 0 or batch :
+            if batch % 16 == 0:
                 optimizer.step()
                 optimizer.zero_grad()
+                pbar.set_postfix({'epoch': epoch, 'loss': loss.item()})
                 with open(f"./pretrain_output/{args.save}/loss.txt", 'a') as f:
-                    f.write(f"[ Training loss | epoch: {epoch} | step: {batch/16} ]: {loss}\n")
+                    f.write(f"[Epoch: {epoch} | step: {batch/16}]: {loss}\n")
 
             batch += 1
 
@@ -101,6 +107,6 @@ if __name__ == "__main__" :
     args = get_finetune_args()
 
     if args.mode == 'train':
-        main(args)
+        train(args)
     else:
         test_finetune(args)

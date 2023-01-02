@@ -3,7 +3,6 @@ import torch
 import numpy as np
 import random
 import os
-from decoding import *
 
 model_map = {
     'gpt': 'gpt2',
@@ -89,6 +88,12 @@ def get_finetune_args():
         "--ckpt",
         type=str,
         default=None
+    )
+
+    parser.add_argument(
+        "--prompt",
+        type=str,
+        default="where is john ? i can't find him anywhere ."
     )
 
     args = parser.parse_args()
@@ -186,45 +191,56 @@ def generate(
     prompt, 
     device,
     max_length=40, #maximum number of words
-    top_p=0.8,
-    top_k=0.95,
+    top_k=50,
     temperature=1.,
 ):
     model.eval()
-    
+    eos = [tokenizer.encoder["<|endoftext|>"]]
     inputs_id = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0).to(device)
     # inputs_id.to(device)
     model = model.to(device)
     model_out = model(inputs_id)
     prev_input, past = model_out['logits'], model_out['past_key_values']
 
-    prev_input = torch.LongTensor(tokenizer.encode(['<|endoftext|>'])).to(device)
+    prev_input = torch.LongTensor([eos[0]]).to(device)
+    # prev_input = torch.LongTensor(tokenizer.encode(['<|endoftext|>'])).to(device)
     temp_sentence = []
-    count = 0
+
     with torch.no_grad():
         for i in range(max_length):
             prev_input = prev_input.to(device)
+            
             model_train_out = model(prev_input, past_key_values=past)
             logits, past = model_train_out['logits'], model_train_out['past_key_values']
             
-            # import pdb
-            # pdb.set_trace()
-            logits = logits.squeeze(0)# .squeeze(1)
-            logits = original(logits)
+            
+            
+            logits = logits.squeeze(0) # shape:(50256,)
+            ## top_k
+            filter_value = -float('inf')
+            values, _ = torch.topk(logits, top_k)
+            min_values = values[-1].repeat(logits.shape[-1])
+            logits = torch.where(logits < min_values, 
+                        torch.ones_like(logits, dtype=logits.dtype) * filter_value, 
+                        logits)
 
+            logits = logits / temperature
+            logits = torch.softmax(logits, dim=-1)
+            #####
             prev_input = torch.multinomial(logits[:], num_samples=1)
 
             if i == 0:              
                 temp_sentence.append(prev_input[0].item())
                 continue
             flag = 1
-            if temp_sentence[-1] != '<|endoftext|>': 
+            if temp_sentence[-1] != eos[0]: 
                 flag = 0
                 temp_sentence.append(prev_input[0].item())
 
             if flag == 1: break
     
-    decode_temp_sentence = [tokenizer.decode(x).lower() for x in temp_sentence]
+    # decode_temp_sentence = [tokenizer.decode(x).lower() for x in temp_sentence]
+    decode_temp_sentence = tokenizer.decode(temp_sentence).replace("<|endoftext|>", "")
         
                 
     return decode_temp_sentence

@@ -21,7 +21,7 @@ class Daily(Dataset) :
             
             tmp_token.append(tmp)
             tmp_mask.append([1 for i in range(len(tmp))])
-            self.ll.append(len(tmp_mask))
+            self.ll.append(len(tmp))
 
         
         self.token = pad_sequence([torch.LongTensor(x) for x in tmp_token], batch_first=True, padding_value=0)
@@ -30,6 +30,7 @@ class Daily(Dataset) :
         print(self.token.shape, self.mask.shape, len(self.ll))
         # for i in range(20) :
         #     print(i, self.token[i])
+        
     
     def __getitem__(self, index) :
         return self.token[index], self.mask[index], self.ll[index]
