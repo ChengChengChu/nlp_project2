@@ -62,7 +62,7 @@ def top_filtering(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
         
         sorted_logits = sorted_logits.masked_fill_(sorted_indices_to_remove, filter_value)
         logits = torch.zeros_like(logits).scatter(1, sorted_indices, sorted_logits)
-    
+    print(logits)
     return logits
 temperature = 1 #2.2
 top_k = 50        #50
