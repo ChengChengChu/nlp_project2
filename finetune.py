@@ -77,9 +77,7 @@ def train(args) :
         loss = 0
         pbar = tqdm(train_dataloader)
         for inputs_id, mask, length in pbar:
-
             inputs_id = inputs_id[:, :length].to(device)
-            
             # print(inputs_id)
             # print(mask)
             # print("+" * 100)
