@@ -9,6 +9,7 @@ from lsp_model.optim import Adam
 from tqdm import tqdm
 from utils import *
 
+
 def set_model(args):
 
     if args.model in model_map:
@@ -44,7 +45,6 @@ def test_finetune(args):
 
 
 def train(args) :
-
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     set_seed(args.seed)
     set_finetune(args)

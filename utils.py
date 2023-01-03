@@ -26,7 +26,6 @@ def set_seed(seed):
 
 
 def set_finetune(args):
-
     DIR = './pretrain_output'
     os.makedirs(DIR, exist_ok=True)
     os.makedirs(os.path.join(DIR, args.save), exist_ok=True)
@@ -34,6 +33,7 @@ def set_finetune(args):
     
 def set_train() :
     idx = 0
+    
     with open('keywords/men.txt') as fp :
         idx = 0
         for line in fp.read().splitlines() :
@@ -94,6 +94,51 @@ def get_finetune_args():
         "--prompt",
         type=str,
         default="where is john ? i can't find him anywhere ."
+    )
+
+    args = parser.parse_args()
+    return args
+
+def get_train_args():
+    
+    parser  = ArgumentParser()
+
+    parser.add_argument(
+        "--save", 
+        type=str, 
+        default="gpt_train")
+
+    parser.add_argument(
+        "--model", 
+        type=str, 
+        default='gpt')
+
+    parser.add_argument(
+        "--batch", 
+        type=int, 
+        default=1)
+
+    parser.add_argument(
+        "--seed", 
+        type=int, 
+        default=100)
+
+    parser.add_argument(
+        "--epoch",
+        type=int,
+        default=2
+    )
+
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default='train'
+    )
+
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        default=None
     )
 
     args = parser.parse_args()
@@ -193,7 +238,7 @@ def generate(
     max_length=40, #maximum number of words
     top_k=50,
     temperature=1.,
-):
+):  
     model.eval()
     eos = [tokenizer.encoder["<|endoftext|>"]]
     inputs_id = torch.tensor(tokenizer.encode(prompt)).unsqueeze(0).to(device)
@@ -212,8 +257,6 @@ def generate(
             
             model_train_out = model(prev_input, past_key_values=past)
             logits, past = model_train_out['logits'], model_train_out['past_key_values']
-            
-            
             
             logits = logits.squeeze(0) # shape:(50256,)
             ## top_k
@@ -263,7 +306,7 @@ def replace_sentence(sens) :
     sens_without_period = [x.lower() for x in sens.split()]
     sens = [x.lower() for x in sens.split()]
 
-    period = [',', '.', '!', '?', '<', '>', '~', '{', '}', '[', ']', "'", '"']
+    period = [',', '.', '!', '?', '<', '>', '~', '{', '}', '[', ']', "'", '"', ':']
     for p in period : 
         for s in sens_without_period : 
             s = s.replace(p, '')

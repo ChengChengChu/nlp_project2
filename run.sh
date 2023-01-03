@@ -1,0 +1,1 @@
+python train.py --model gpt --ckpt pretrain_output/gpt_pretrain/models/gpt-0.pt
