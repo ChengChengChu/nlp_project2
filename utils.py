@@ -31,9 +31,8 @@ def set_finetune(args):
     os.makedirs(os.path.join(DIR, args.save), exist_ok=True)
     os.makedirs(os.path.join(DIR, args.save, "models"), exist_ok=True)
     
-def set_train() :
+def set_train(args) :
     idx = 0
-    
     with open('keywords/men.txt') as fp :
         idx = 0
         for line in fp.read().splitlines() :
@@ -47,6 +46,11 @@ def set_train() :
             womens.append(line.lower())
             women_keys_to_idx[line.lower()] = idx
             idx += 1
+    
+    DIR = './training_output'
+    os.makedirs(DIR, exist_ok=True)
+    os.makedirs(os.path.join(DIR, args.save), exist_ok=True)
+    os.makedirs(os.path.join(DIR, args.save, "models"), exist_ok=True)
 
 def get_finetune_args():
     
@@ -96,6 +100,12 @@ def get_finetune_args():
         default="where is john ? i can't find him anywhere ."
     )
 
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=2e-5
+    )
+
     args = parser.parse_args()
     return args
 
@@ -130,15 +140,15 @@ def get_train_args():
     )
 
     parser.add_argument(
-        "--mode",
-        type=str,
-        default='train'
-    )
-
-    parser.add_argument(
         "--ckpt",
         type=str,
         default=None
+    )
+
+    parser.add_argument(
+        "--lr",
+        type=float,
+        default=2e-5
     )
 
     args = parser.parse_args()
@@ -237,7 +247,7 @@ def generate(
     device,
     max_length=40, #maximum number of words
     top_k=50,
-    temperature=1.,
+    temperature=.9,
 ):  
     model.eval()
     eos = [tokenizer.encoder["<|endoftext|>"]]
@@ -303,31 +313,37 @@ def replace_sentence(sens) :
 
     sens = sens.replace('\n', '') + '\n'
 
-    sens_without_period = [x.lower() for x in sens.split()]
+    sens_without_period = []
+    
     sens = [x.lower() for x in sens.split()]
 
     period = [',', '.', '!', '?', '<', '>', '~', '{', '}', '[', ']', "'", '"', ':']
-    for p in period : 
-        for s in sens_without_period : 
-            s = s.replace(p, '')
+    for s in sens:
+        s_ = s
+        for p in period:
+            s_ = s_.replace(p, '')
+        sens_without_period.append(s_)
 
     assert(len(sens_without_period) == len(sens))
 
     # find key word list 
     for i in range(len(sens_without_period)) : 
+        # print(sens_without_period[i] + '|')
         if sens_without_period[i] in mens or sens_without_period[i] in womens :
+            # print("PASS")
             key_word_idx.append(i)
     
     ret_1 = sens[:]
     ret_2 = sens[:]
-
+    gen = False
     for i in key_word_idx :
         tmp = sens_without_period[i]
-
         if tmp in womens :
             ret_1[i] = ret_1[i].replace(tmp, mens[women_keys_to_idx[tmp]])
+            gen = True
         
         if tmp in mens :
             ret_2[i] = ret_2[i].replace(tmp, womens[men_keys_to_idx[tmp]])
+            gen = True
     
-    return " ".join(ret_1), " ".join(ret_2)
+    return " ".join(ret_1), " ".join(ret_2), gen
