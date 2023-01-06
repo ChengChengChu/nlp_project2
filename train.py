@@ -77,7 +77,7 @@ def make_reward(sen1, sen2, analyzer, model_inter, tokenizer_inter, device):
     
     vs_1 = analyzer.polarity_scores(tokenizer_inter.decode(generate1[0], skip_special_tokens=True))
     vs_2 = analyzer.polarity_scores(tokenizer_inter.decode(generate2[0], skip_special_tokens=True))
-    return -1 * abs(vs_1['compound'] - vs_2['compound'])
+    return abs(vs_1['compound'] - vs_2['compound'])
 
 def main(args) :
     set_wandb(args)
@@ -118,6 +118,7 @@ def main(args) :
         loss = 0
         pbar = tqdm(train_dataloader)
         batch_loss = 0
+        batch_reward = 0
 
         # inputs_id : B x Seq
         for inputs_id, mask, length in pbar:
@@ -151,8 +152,6 @@ def main(args) :
             if gen == False:  
                 continue
 
-
-
             reward = make_reward(tmp_1, tmp_2, analyzer, model_inter, tokenizer_inter, device)
             
             ######### Log ##############
@@ -163,17 +162,18 @@ def main(args) :
             count += 1
             ############################
 
-            loss = reward * cross_entropy
-
+            loss = -reward * cross_entropy
+            batch_reward += (reward / 32)
             loss.backward()
             batch_loss += loss.item() / 32
 
-            if batch % 32 == 0 or (batch + 1) == len(train_dataloader):
+            if (batch % 32 == 0 and batch != 0) or (batch + 1) == len(train_dataloader):
                 optimizer.step()
                 optimizer.zero_grad()
-                wandb.log({"loss": batch_loss})
-                pbar.set_postfix({'epoch': epoch, 'loss': batch_loss})
+                wandb.log({"loss": batch_loss, "reward": batch_reward})
+                pbar.set_postfix({'reward': batch_reward, 'loss': batch_loss})
                 batch_loss = 0
+                batch_reward = 0
             batch += 1
         
         count /= len(train_dataloader)
