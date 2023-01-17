@@ -18,7 +18,7 @@ def original(logits, temperature = 1.0):
 
   return logits
 
-def sampling(logits, top_k = 0, top_p = 0.0, temperature = 1.0):
+def top_k_top_p_filtering(logits, top_k = 0, top_p = 0.0, temperature = 1.0):
   # logits = torch.softmax(logits, dim=-1)
   filter_value = -float('inf')
 

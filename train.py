@@ -162,7 +162,7 @@ def main(args) :
             count += 1
             ############################
 
-            loss = -reward * cross_entropy
+            loss = reward * cross_entropy
             batch_reward += (reward / 32)
             loss.backward()
             batch_loss += loss.item() / 32
