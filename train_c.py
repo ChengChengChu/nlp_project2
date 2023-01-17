@@ -44,10 +44,19 @@ def set_model(args, name="gen") :
     
     return model, tokenizer
 
+def enforce_repetition_penalty(lprobs, prev_output_tokens, repetition_penalty=1.2):
+    """repetition penalty (from CTRL paper https://arxiv.org/abs/1909.05858). """
+    for i in range(len(prev_output_tokens)):
+        for previous_token in set(prev_output_tokens[i].tolist()):
+            # if score < 0 then repetition penalty has to multiplied to reduce the previous token probability
+            if lprobs[i, previous_token] < 0:
+                lprobs[i, previous_token] *= repetition_penalty
+            else:
+                lprobs[i, previous_token] /= repetition_penalty
+    return lprobs
 
 
-
-def make_reward(model, tokenizer, first_input, analyzer, device):
+def make_reward(args, model, tokenizer, first_input, analyzer, device):
     with torch.no_grad():
         sentences = []
         for i in range(len(first_input)):
@@ -59,7 +68,8 @@ def make_reward(model, tokenizer, first_input, analyzer, device):
             m.append(temp_m[:])
         eos = [tokenizer.encoder["<|endoftext|>"]]
 
-
+        import pdb
+        pdb.set_trace()
         # prepare original input to model
         prev_input = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in sentences], value=0)).to(device)
         m = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in m], value=0)).to(device)
@@ -72,6 +82,7 @@ def make_reward(model, tokenizer, first_input, analyzer, device):
 
         prev_input = torch.LongTensor([[eos] * len(sentences)]).squeeze(0).to(device)
         append = torch.tensor([[1] for i in range(len(sentences))]).to(device)
+        m = torch.cat((m, append), 1)
         position_ids = m.long().cumsum(-1) - 1
         position_ids.masked_fill_(m == 0, 1)
         position_ids = position_ids[:, -1].unsqueeze(-1)
@@ -79,7 +90,7 @@ def make_reward(model, tokenizer, first_input, analyzer, device):
         
         
 
-        for i in range(60):
+        for i in range(40):
             outputs = model(prev_input, past_key_values=past, attention_mask=m, position_ids=position_ids)
             prev_input, past = outputs["logits"], outputs["past_key_values"]
             m = torch.cat((m, append), 1)
@@ -88,7 +99,7 @@ def make_reward(model, tokenizer, first_input, analyzer, device):
             position_ids = position_ids[:, -1].unsqueeze(-1)
 
             prev_input = prev_input.squeeze(0).squeeze(1)
-            prev_input = top_k_top_p_filtering(prev_input, top_k=40, temperature=.7)
+            prev_input = top_k_top_p_filtering(prev_input, top_k=args.top_k, temperature=2.2)
             prev_input = torch.multinomial(prev_input, num_samples=1)
 
             if i == 0:
@@ -105,10 +116,10 @@ def make_reward(model, tokenizer, first_input, analyzer, device):
         for x in temp_sen:
           a.append(tokenizer.decode(x[:], skip_special_tokens=True).replace('<|endoftext|>', ''))
 
-
+        
         vs_1 = analyzer.polarity_scores(a[0])
         vs_2 = analyzer.polarity_scores(a[1])
-        return abs(vs_1['compound'] - vs_2['compound'])
+        return a[0], a[1], abs(vs_1['compound'] - vs_2['compound'])
 
 
 def main(args) :
@@ -152,19 +163,20 @@ def main(args) :
         batch_reward = 0
 
         for inputs_id, mask, length in pbar:
-            inputs_id = inputs_id[:,0].to(device)
-            mask = mask[:,0].to(device)
+            prev_input = inputs_id[:,0].unsqueeze(1).to(device)
+            m = mask[:,0].unsqueeze(1).to(device)
             eos = [tokenizer.encoder["<|endoftext|>"]]
 
-            prev_input = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in inputs_id], value=0)).to(device)
-            m = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in mask], value=0)).to(device)
+            # prev_input = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in inputs_id], value=0)).to(device)
+            # m = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in mask], value=0)).to(device)
 
-            position_ids = m.long().cumsum(-1) - 1 #+ prev_input.shape[1]
-            position_ids.masked_fill_(m == 0, 1)
+            # position_ids = m.long().cumsum(-1) - 1 #+ prev_input.shape[1]
+            # position_ids.masked_fill_(m == 0, 1)
             
             append = torch.tensor([[1] for i in range(len(inputs_id))]).to(device)
             position_ids = m.long().cumsum(-1) - 1
             position_ids.masked_fill_(m == 0, 1)
+
             position_ids = position_ids[:, -1].unsqueeze(-1)
 
             temp_sentence = [[] for i in range(inputs_id.shape[0])]
@@ -175,15 +187,15 @@ def main(args) :
             past = None
 
             for i in range(40): 
-                model_train_out = model_train(prev_input, past_key_values=past)
+                model_train_out = model_train(prev_input, attention_mask=m, past_key_values=past, position_ids=position_ids)
                 logits, past = model_train_out['logits'], model_train_out['past_key_values']
-                mask = torch.cat((mask, append), 1)
+                m = torch.cat((m, append), 1)
                 position_ids = m.long().cumsum(-1) - 1
                 position_ids.masked_fill_(m == 0, 1)
                 position_ids = position_ids[:, -1].unsqueeze(-1)
 
                 logits = logits.squeeze(0).squeeze(1)
-                logits = top_k_top_p_filtering(logits, top_k=40, temperature=.7)
+                logits = top_k_top_p_filtering(logits, top_k=args.top_k, temperature=2.2) 
                 prev_input = torch.multinomial(logits[:], num_samples=1)
 
                 for j in range(inputs_id.shape[0]):
@@ -208,7 +220,9 @@ def main(args) :
             for x in temp_sentence:
                 decode_sentence.append(tokenizer.decode(x[:], skip_special_tokens=True).replace('<|endoftext|>', ''))
             # decode_temp_sentence = [tokenizer.decode(x).lower() for x in temp_sentence]
-
+            
+            import pdb
+            pdb.set_trace()
 
             reward = []
             for s in decode_sentence : 
@@ -216,13 +230,15 @@ def main(args) :
                 if gen == False:
                     reward.append(0)
                 else:
-                    r = make_reward(model_inter, tokenizer_inter, [tmp_1, tmp_2], analyzer,  device)
+                    r1, r2, r = make_reward(args, model_inter, tokenizer_inter, [tmp_1, tmp_2], analyzer,  device)
                     reward.append(r)
 
                     ######### Log ##############
                     if reward != 0:
                         f.write(f"{tmp_1}\n")
+                        f.write(f"{r1}\n")
                         f.write(f"{tmp_2}\n")
+                        f.write(f"{r2}\n")
                         f.write("="*10 + "\n")
                     count += 1
                     ############################

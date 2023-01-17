@@ -55,188 +55,31 @@ def set_train(args) :
 def get_finetune_args():
     
     parser  = ArgumentParser()
-
-    parser.add_argument(
-        "--save", 
-        type=str, 
-        default="gpt_pretrain")
-
-    parser.add_argument(
-        "--model", 
-        type=str, 
-        default='gpt')
-
-    parser.add_argument(
-        "--batch", 
-        type=int, 
-        default=1)
-
-    parser.add_argument(
-        "--seed", 
-        type=int, 
-        default=100)
-
-    parser.add_argument(
-        "--epoch",
-        type=int,
-        default=2
-    )
-
-    parser.add_argument(
-        "--mode",
-        type=str,
-        default='train'
-    )
-
-    parser.add_argument(
-        "--ckpt",
-        type=str,
-        default=None
-    )
-
-    parser.add_argument(
-        "--prompt",
-        type=str,
-        default="where is john ? i can't find him anywhere ."
-    )
-
-    parser.add_argument(
-        "--lr",
-        type=float,
-        default=2e-5
-    )
-
+    parser.add_argument("--save", type=str, default="gpt_pretrain")
+    parser.add_argument("--model", type=str, default='gpt')
+    parser.add_argument("--batch", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=100)
+    parser.add_argument("--epoch",type=int,default=2)
+    parser.add_argument("--mode",type=str,default='train')
+    parser.add_argument("--ckpt",type=str,default=None)
+    parser.add_argument("--prompt",type=str,default="where is john ? i can't find him anywhere .")
+    parser.add_argument("--lr",type=float,default=2e-5)
     args = parser.parse_args()
     return args
 
 def get_train_args():
     
     parser  = ArgumentParser()
-
-    parser.add_argument(
-        "--save", 
-        type=str, 
-        default="gpt_train")
-
-    parser.add_argument(
-        "--model", 
-        type=str, 
-        default='gpt')
-
-    parser.add_argument(
-        "--batch", 
-        type=int, 
-        default=1)
-
-    parser.add_argument(
-        "--seed", 
-        type=int, 
-        default=100)
-
-    parser.add_argument(
-        "--epoch",
-        type=int,
-        default=2
-    )
-
-    parser.add_argument(
-        "--ckpt",
-        type=str,
-        default=None
-    )
-
-    parser.add_argument(
-        "--lr",
-        type=float,
-        default=2e-5
-    )
-
+    parser.add_argument("--save", type=str, default="gpt_train")
+    parser.add_argument("--model", type=str, default='gpt')
+    parser.add_argument("--batch", type=int, default=1)
+    parser.add_argument("--seed", type=int, default=100)
+    parser.add_argument("--epoch",type=int,default=2)
+    parser.add_argument("--ckpt",type=str,default=None)
+    parser.add_argument("--lr",type=float,default=2e-5)
+    parser.add_argument("--top_k", type=int, default=40)
+    parser.add_argument("--top_p", type=float, default=1.0)
     args = parser.parse_args()
-    return args
-
-def get_args():
-    parser = ArgumentParser()
-
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=100
-    )
-
-    parser.add_argument(
-        "--emotion",
-        type=str,
-        default=None
-    )
-
-    parser.add_argument(
-        "--sw",
-        type=str,
-        default=None
-    )
-
-    parser.add_argument(
-        "--writer", 
-        type=str, 
-        default="")
-
-    parser.add_argument(
-        "--save", 
-        type=str, 
-        help="save path",
-        default="model/save/")
-        
-    parser.add_argument(
-        "--model", 
-        type=str, 
-        default="facebook/blenderbot-400M-distill")
-
-    parser.add_argument(
-        "--ra", 
-        type=float, 
-        default=3)
-
-    parser.add_argument(
-        "--inter", 
-        type=str, 
-        default="gpt", 
-        nargs='+', 
-        required=True)
-
-    parser.add_argument(
-        "--n_tokens", 
-        type=int, 
-        default=10)
-
-
-    parser.add_argument(
-        "--mode", 
-        type=str, 
-        help="length / emotion / sw",
-        default='length')
-
-    parser.add_argument(
-        "--initial", 
-        type=str, 
-        default='vocab')
-
-    parser.add_argument(
-        "--top_k", 
-        type=int, 
-        default=0)
-
-    parser.add_argument(
-        "--top_p", 
-        type=float, 
-        default=0.0)
-
-    parser.add_argument(
-        "--temperature", 
-        type=float, 
-        default=1.0)
-
-    args = parser.parse_args()
-
     return args
 
 

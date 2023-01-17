@@ -11,3 +11,4 @@ transformers==4.25.1
 wandb==0.13.7
 vaderSentiment
 undecorated
+tensorflow

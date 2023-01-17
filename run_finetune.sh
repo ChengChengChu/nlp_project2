@@ -1,0 +1,1 @@
+python3 finetune.py --model gpt2-medium --epoch 5 --save gpt2-m

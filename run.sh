@@ -1,1 +1,10 @@
-python train.py --model gpt --ckpt pretrain_output/gpt_pretrain/models/gpt-0.pt
+python train_c.py\
+    --mode train\
+    --model gpt2-medium\
+    --top_k 40\
+    --save gpt-medium_pos2\
+    --batch 4\
+    --ckpt ./pretrain_output/gpt2-m/models/gpt2-m-4.pt\
+    --epoch 1\
+    --lr 2e-5\
+    --seed 10
