@@ -58,6 +58,8 @@ def enforce_repetition_penalty(lprobs, prev_output_tokens, repetition_penalty=1.
 
 def make_reward(args, model, tokenizer, first_input, analyzer, device):
     with torch.no_grad():
+
+
         sentences = []
         for i in range(len(first_input)):
 
@@ -68,8 +70,6 @@ def make_reward(args, model, tokenizer, first_input, analyzer, device):
             m.append(temp_m[:])
         eos = [tokenizer.encoder["<|endoftext|>"]]
 
-        import pdb
-        pdb.set_trace()
         # prepare original input to model
         prev_input = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in sentences], value=0)).to(device)
         m = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in m], value=0)).to(device)
@@ -77,8 +77,8 @@ def make_reward(args, model, tokenizer, first_input, analyzer, device):
         position_ids = m.long().cumsum(-1) - 1 #+ prev_input.shape[1]
         position_ids.masked_fill_(m == 0, 1)
 
-        outputs = model(prev_input, past=None, attention_mask=m, position_ids=position_ids)
-        past = outputs['past_key_value']
+        outputs = model(prev_input, past_key_values=None, attention_mask=m, position_ids=position_ids)
+        past = outputs['past_key_values']
 
         prev_input = torch.LongTensor([[eos] * len(sentences)]).squeeze(0).to(device)
         append = torch.tensor([[1] for i in range(len(sentences))]).to(device)
@@ -157,12 +157,13 @@ def main(args) :
     count = 0
     for epoch in range(args.epoch):
         batch = 0
-        loss = 0
+        
         pbar = tqdm(train_dataloader)
         batch_loss = 0
         batch_reward = 0
 
         for inputs_id, mask, length in pbar:
+            loss = 0
             prev_input = inputs_id[:,0].unsqueeze(1).to(device)
             m = mask[:,0].unsqueeze(1).to(device)
             eos = [tokenizer.encoder["<|endoftext|>"]]
@@ -182,10 +183,10 @@ def main(args) :
             temp_sentence = [[] for i in range(inputs_id.shape[0])]
             model_train_CrossEntropy = [0 for i in range(inputs_id.shape[0])]
 
-            for j in range(len(inputs_id)):
-                temp_sentence[j].extend(inputs_id[j])
+            for j in range(len(prev_input)):
+                temp_sentence[j].extend(prev_input[j])
             past = None
-
+            
             for i in range(40): 
                 model_train_out = model_train(prev_input, attention_mask=m, past_key_values=past, position_ids=position_ids)
                 logits, past = model_train_out['logits'], model_train_out['past_key_values']
@@ -218,50 +219,52 @@ def main(args) :
             
             decode_sentence = []
             for x in temp_sentence:
-                decode_sentence.append(tokenizer.decode(x[:], skip_special_tokens=True).replace('<|endoftext|>', ''))
+                decode_sentence.append(tokenizer.decode(x, skip_special_tokens=True).replace('<|endoftext|>', ''))
             # decode_temp_sentence = [tokenizer.decode(x).lower() for x in temp_sentence]
             
-            import pdb
-            pdb.set_trace()
+            # import pdb
+            # pdb.set_trace()
 
             reward = []
             for s in decode_sentence : 
                 tmp_1, tmp_2, gen = replace_sentence(s)
+                tmp_1_encode = tokenizer.encode(tmp_1)
+                tmp_2_encode = tokenizer.encode(tmp_2)
                 if gen == False:
                     reward.append(0)
                 else:
-                    r1, r2, r = make_reward(args, model_inter, tokenizer_inter, [tmp_1, tmp_2], analyzer,  device)
+                    r1, r2, r = make_reward(args, model_inter, tokenizer_inter, [tmp_1_encode, tmp_2_encode], analyzer,  device)
                     reward.append(r)
 
                     ######### Log ##############
                     if reward != 0:
-                        f.write(f"{tmp_1}\n")
-                        f.write(f"{r1}\n")
-                        f.write(f"{tmp_2}\n")
-                        f.write(f"{r2}\n")
+                        f.write(f"{tmp_1}\n{r1}\n{tmp_2}\n{r2}\n")
                         f.write("="*10 + "\n")
-                    count += 1
+                        count += 1
                     ############################
-
+            # import pdb
+            # pdb.set_trace()
             reward = np.array(reward)
             reward = (reward - np.mean(reward)) / len(reward)
             for j in range(inputs_id.shape[0]) :
-                loss = loss + model_train_CrossEntropy[j] * reward[j] 
+                loss += model_train_CrossEntropy[j] * reward[j] 
 
             
 
             #### calculate loss
-            loss.backward()
             batch_reward += (np.sum(reward) / 4)
             batch_loss += loss.item() / 4
+            loss.backward()
+            
 
             if (batch % 4 == 0 and batch != 0) or (batch + 1) == len(train_dataloader):
                 optimizer.step()
                 optimizer.zero_grad()
                 wandb.log({"loss": batch_loss, "reward": batch_reward})
-                pbar.set_postfix({'reward': batch_reward, 'loss': batch_loss})
+                pbar.set_postfix({'reward': batch_reward, 'loss': batch_loss, 'c':count})
                 batch_loss = 0
                 batch_reward = 0
+                
         
             batch += 1
         
@@ -272,6 +275,7 @@ def main(args) :
         }, f"training_output/{args.save}/models/{epoch}.pt")
 
 if __name__ == "__main__" :
+    torch.cuda.empty_cache()
     args = get_train_args()
     main(args)
 
