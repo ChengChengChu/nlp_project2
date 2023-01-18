@@ -133,6 +133,10 @@ def main(args) :
     model_train, tokenizer = set_model(args, "gen")
     model_train = model_train.to(device)
 
+    model_co, tokenizer = set_model(args, 'gen')
+    model_co = model_co.to(device)
+    
+
     model_inter, tokenizer_inter = set_model(args, "inter")
     model_inter = model_inter.to(device)
 
@@ -152,6 +156,7 @@ def main(args) :
     train_dataloader = DataLoader(daily_data, batch_size=args.batch, shuffle=True, num_workers=4)
     
     model_train.train()
+    model_co.eval()
     model_inter.eval()
     f = open(f"training_output/{args.save}/log.txt", "w")
     count = 0
@@ -181,15 +186,28 @@ def main(args) :
             position_ids = position_ids[:, -1].unsqueeze(-1)
 
             temp_sentence = [[] for i in range(inputs_id.shape[0])]
+
+            ### for coherence ###
+            coherence_loss = [0 for i in range(inputs_id.shape[0])]
+            test_reward = [1 for i in range(inputs_id.shape[0])]
+            #####################
+
             model_train_CrossEntropy = [0 for i in range(inputs_id.shape[0])]
 
             for j in range(len(prev_input)):
                 temp_sentence[j].extend(prev_input[j])
             past = None
+            past_co = None
             
             for i in range(40): 
                 model_train_out = model_train(prev_input, attention_mask=m, past_key_values=past, position_ids=position_ids)
                 logits, past = model_train_out['logits'], model_train_out['past_key_values']
+
+                with torch.no_grad():
+                    model_co_out = model_co(prev_input, past_key_values=past_co, attention_mask=m, position_ids=position_ids)
+                    logits_co, past_co = model_co_out['logits'], model_co_out['past_key_values']
+
+
                 m = torch.cat((m, append), 1)
                 position_ids = m.long().cumsum(-1) - 1
                 position_ids.masked_fill_(m == 0, 1)
@@ -199,10 +217,29 @@ def main(args) :
                 logits = top_k_top_p_filtering(logits, top_k=args.top_k, temperature=2.2) 
                 prev_input = torch.multinomial(logits[:], num_samples=1)
 
+                with torch.no_grad():
+                    logits_co = logits_co.squeeze(0).squeeze(1)
+                    logits_co = top_k_top_p_filtering(logits_co, top_k=args.top_k, temperature=2.2)
+                
+                ########## coherence ##########
+                probs = []
+                for j in range(inputs_id.shape[0]):
+                    if i != 0 and temp_sentence[j][-1] == eos[0]:
+                        continue
+                    prob = logits_co[j][prev_input[j][0].item()].item()
+                    probs.append(prob)
+                    test_reward[j] *= prob
+                if len(probs) == 0:
+                    avg_prob = 0
+                else:
+                    avg_prob = sum(probs) / len(probs)
+                ###############################
+
                 for j in range(inputs_id.shape[0]):
                     if i != 0 and temp_sentence[j][-1] == eos[0]: continue
                     temp_loss = F.cross_entropy(logits[j].unsqueeze(0), prev_input.view(-1)[j].unsqueeze(0))
-                    model_train_CrossEntropy[j] = temp_loss + model_train_CrossEntropy[j]
+                    coherence_loss[j] += (logits_co[j][prev_input[j][0].item()].item() - avg_prob) * temp_loss
+                    model_train_CrossEntropy[j] += temp_loss
 
                 if i == 0:
                     for j in range(len(inputs_id)):    
@@ -244,15 +281,19 @@ def main(args) :
                     ############################
             # import pdb
             # pdb.set_trace()
+            
             reward = np.array(reward)
-            reward = (reward - np.mean(reward)) / len(reward)
+            avg_reward = np.mean(reward)
+            reward = (reward - avg_reward)
+            
             for j in range(inputs_id.shape[0]) :
                 loss += model_train_CrossEntropy[j] * reward[j] 
+                loss += coherence_loss[j] * args.ra
 
             
 
             #### calculate loss
-            batch_reward += (np.sum(reward) / 4)
+            batch_reward += (avg_reward / 4)
             batch_loss += loss.item() / 4
             loss.backward()
             
@@ -273,6 +314,7 @@ def main(args) :
             'model_state_dict': model_train.state_dict(),
             'optimizer_state_dict': optimizer.state_dict()
         }, f"training_output/{args.save}/models/{epoch}.pt")
+    
 
 if __name__ == "__main__" :
     torch.cuda.empty_cache()
