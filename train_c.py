@@ -5,13 +5,14 @@ from transformers import GPT2LMHeadModel, GPT2Tokenizer
 import tqdm
 import torch
 import torch.nn.functional as F
-from lsp_model.optim import Adam
+from lsp_model.optim import *
 from tqdm import tqdm
 from utils import *
 from decoding import *
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import tensorflow as tf
 import wandb
+import importlib
 
 def set_wandb(args):
     wandb.init(
@@ -22,25 +23,23 @@ def set_wandb(args):
     wandb.config.update(args)
 
 
-def set_model(args, name="gen") :
+def set_model(args) :
 
-    if name == "inter":
-        m = model_map["diologpt"]
-    else:
-        if args.model in model_map:
-            m = model_map[args.model]
-        else :
-            m = args.model
+    
+    if args.model in model_map:
+        m = model_map[args.model]
+    else :
+        m = args.model
     
     model = GPT2LMHeadModel.from_pretrained(m)
     tokenizer = GPT2Tokenizer.from_pretrained(m)
 
-    if name == "gen":
-        if args.ckpt != None: 
-            print("Using model with finetuning !!!")
-            model.load_state_dict(torch.load(args.ckpt))
-        else : 
-            print("Training with base model without finetuning !!!")
+    
+    if args.ckpt != None: 
+        print("Using model with finetuning !!!")
+        model.load_state_dict(torch.load(args.ckpt))
+    else : 
+        print("Training with base model without finetuning !!!")
     
     return model, tokenizer
 
@@ -56,70 +55,13 @@ def enforce_repetition_penalty(lprobs, prev_output_tokens, repetition_penalty=1.
     return lprobs
 
 
-def make_reward(args, model, tokenizer, first_input, analyzer, device):
-    with torch.no_grad():
-
-
-        sentences = []
-        for i in range(len(first_input)):
-
-            sentences.append((list(first_input[i])))
-        m = []
-        for i in range(len(sentences)):
-            temp_m = [1 for x in range(len(sentences[i]))]
-            m.append(temp_m[:])
-        eos = [tokenizer.encoder["<|endoftext|>"]]
-
-        # prepare original input to model
-        prev_input = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in sentences], value=0)).to(device)
-        m = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in m], value=0)).to(device)
-
-        position_ids = m.long().cumsum(-1) - 1 #+ prev_input.shape[1]
-        position_ids.masked_fill_(m == 0, 1)
-
-        outputs = model(prev_input, past_key_values=None, attention_mask=m, position_ids=position_ids)
-        past = outputs['past_key_values']
-
-        prev_input = torch.LongTensor([[eos] * len(sentences)]).squeeze(0).to(device)
-        append = torch.tensor([[1] for i in range(len(sentences))]).to(device)
-        m = torch.cat((m, append), 1)
-        position_ids = m.long().cumsum(-1) - 1
-        position_ids.masked_fill_(m == 0, 1)
-        position_ids = position_ids[:, -1].unsqueeze(-1)
-        temp_sen = [[] for i in range(len(sentences))]
-        
-        
-
-        for i in range(40):
-            outputs = model(prev_input, past_key_values=past, attention_mask=m, position_ids=position_ids)
-            prev_input, past = outputs["logits"], outputs["past_key_values"]
-            m = torch.cat((m, append), 1)
-            position_ids = m.long().cumsum(-1) - 1
-            position_ids.masked_fill_(m == 0, 1)
-            position_ids = position_ids[:, -1].unsqueeze(-1)
-
-            prev_input = prev_input.squeeze(0).squeeze(1)
-            prev_input = top_k_top_p_filtering(prev_input, top_k=args.top_k, temperature=2.2)
-            prev_input = torch.multinomial(prev_input, num_samples=1)
-
-            if i == 0:
-                for j in range(len(sentences)):    
-                    temp_sen[j].append(prev_input[j].item())
-                continue
-            flag = 1
-            for j in range(len(sentences)):
-                if temp_sen[j][-1] != eos[0]: 
-                    flag = 0
-                    temp_sen[j].append(prev_input[j].item())
-            if flag == 1: break
-        a = []
-        for x in temp_sen:
-          a.append(tokenizer.decode(x[:], skip_special_tokens=True).replace('<|endoftext|>', ''))
+def make_reward(a, analyzer):
+    
 
         
-        vs_1 = analyzer.polarity_scores(a[0])
-        vs_2 = analyzer.polarity_scores(a[1])
-        return a[0], a[1], abs(vs_1['compound'] - vs_2['compound'])
+    vs_1 = analyzer.polarity_scores(a[0])
+    vs_2 = analyzer.polarity_scores(a[1])
+    return abs(vs_1['compound'] - vs_2['compound'])
 
 
 def main(args) :
@@ -130,15 +72,18 @@ def main(args) :
     set_train(args)
     set_wandb(args)
 
-    model_train, tokenizer = set_model(args, "gen")
+    model_train, tokenizer = set_model(args)
     model_train = model_train.to(device)
 
-    model_co, tokenizer = set_model(args, 'gen')
+    model_co, tokenizer = set_model(args)
     model_co = model_co.to(device)
     
 
-    model_inter, tokenizer_inter = set_model(args, "inter")
-    model_inter = model_inter.to(device)
+    # model_inter, tokenizer_inter = set_model(args, "inter")
+    # model_inter = model_inter.to(device)
+
+    inter = importlib.import_module(".module", f"bots.{args.inter}").bot
+    model_inter = inter(args, device)
 
     param_optimizer = list(model_train.named_parameters())
     no_decay = ['bias', 'ln']   # no decay for bias and LayerNorm (ln)
@@ -149,8 +94,9 @@ def main(args) :
         {'params': [p for n, p in param_optimizer
                     if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}]
 
+    
     optimizer = Adam(optimizer_grouped_parameters, args.lr,
-                     max_grad_norm=1.0)
+                    max_grad_norm=1.0)
     
     daily_data = Daily('data/daily_train_key.json', tokenizer, args)
     train_dataloader = DataLoader(daily_data, batch_size=args.batch, shuffle=True, num_workers=4)
@@ -160,19 +106,21 @@ def main(args) :
     model_inter.eval()
     f = open(f"training_output/{args.save}/log.txt", "w")
     count = 0
+    total = 0
     for epoch in range(args.epoch):
         batch = 0
         
         pbar = tqdm(train_dataloader)
         batch_loss = 0
         batch_reward = 0
+        
 
         for inputs_id, mask, length in pbar:
             loss = 0
             prev_input = inputs_id[:,0].unsqueeze(1).to(device)
             m = mask[:,0].unsqueeze(1).to(device)
             eos = [tokenizer.encoder["<|endoftext|>"]]
-
+            total += args.batch
             # prev_input = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in inputs_id], value=0)).to(device)
             # m = torch.LongTensor(tf.keras.preprocessing.sequence.pad_sequences([torch.LongTensor(x) for x in mask], value=0)).to(device)
 
@@ -270,12 +218,14 @@ def main(args) :
                 if gen == False:
                     reward.append(0)
                 else:
-                    r1, r2, r = make_reward(args, model_inter, tokenizer_inter, [tmp_1_encode, tmp_2_encode], analyzer,  device)
+                    # r1, r2, r = make_reward(args, model_inter, tokenizer_inter, [tmp_1_encode, tmp_2_encode], analyzer,  device)
+                    responses = model_inter.make_response([tmp_1_encode, tmp_2_encode])
+                    r = make_reward(responses, analyzer)
                     reward.append(r)
 
                     ######### Log ##############
                     if reward != 0:
-                        f.write(f"{tmp_1}\n{r1}\n{tmp_2}\n{r2}\n")
+                        f.write(f"{tmp_1}\n{responses[0]}\n{tmp_2}\n{responses[1]}\n")
                         f.write("="*10 + "\n")
                         count += 1
                     ############################
@@ -301,8 +251,8 @@ def main(args) :
             if (batch % 4 == 0 and batch != 0) or (batch + 1) == len(train_dataloader):
                 optimizer.step()
                 optimizer.zero_grad()
-                wandb.log({"loss": batch_loss, "reward": batch_reward})
-                pbar.set_postfix({'reward': batch_reward, 'loss': batch_loss, 'c':count})
+                wandb.log({"loss": batch_loss, "reward": batch_reward, "hit": count / total})
+                pbar.set_postfix({'reward': batch_reward, 'loss': batch_loss, 'hit':count / total})
                 batch_loss = 0
                 batch_reward = 0
                 

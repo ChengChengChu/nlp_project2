@@ -79,6 +79,9 @@ def get_train_args():
     parser.add_argument("--lr",type=float,default=2e-5)
     parser.add_argument("--top_k", type=int, default=40)
     parser.add_argument("--top_p", type=float, default=1.0)
+    parser.add_argument("--ra", type=float, default=.5)
+    parser.add_argument("--temperature", type=float, default=2.2)
+    parser.add_argument("--inter", type=str, default='DialogGPT')
     args = parser.parse_args()
     return args
 

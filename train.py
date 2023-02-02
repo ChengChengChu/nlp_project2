@@ -151,7 +151,6 @@ def main(args) :
 
             if gen == False:  
                 continue
-
             reward = make_reward(tmp_1, tmp_2, analyzer, model_inter, tokenizer_inter, device)
             
             ######### Log ##############
