@@ -3,7 +3,7 @@ from torch import nn
 import openai
 
 class bot(nn.Module):
-    def __init__(self, config):
+    def __init__(self, config, device):
         super().__init__()
 
         """
