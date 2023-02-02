@@ -12,3 +12,4 @@ wandb==0.13.7
 vaderSentiment
 undecorated
 tensorflow
+openai
